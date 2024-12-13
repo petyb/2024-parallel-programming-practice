@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <iomanip>
-
+#include <thread>
 
 std::vector<std::vector<double>> read_matrix() {
     size_t rows, cols;
@@ -43,6 +43,16 @@ std::vector<std::vector<double>> read_matrix() {
     return result;
 }
 
+void multiply(const std::vector<std::vector<double>> &left, const std::vector<std::vector<double>> &right,
+              std::vector<std::vector<double>> &result, int start, int end) {
+    for (int i = start; i < end; ++i) {
+        for (int j = 0; j < right[0].size(); ++j) {
+            for (int k = 0; k < left[0].size(); ++k) {
+                result[i][j] += left[i][k] * right[k][j];
+            }
+        }
+    }
+}
 
 int main() {
     auto left = read_matrix();
@@ -57,12 +67,17 @@ int main() {
     }
 
     std::vector<std::vector<double>> result(left_rows, std::vector<double>(right_cols));
-    for (int i = 0; i < left_rows; ++i) {
-        for (int j = 0; j < right_cols; ++j) {
-            for (int k = 0; k < left_cols; ++k) {
-                result[i][j] += left[i][k] * right[k][j];
-            }
-        }
+    int num_threads = 8;
+    std::vector<std::thread> threads;
+    int n_rows = left_rows / num_threads;
+    for (size_t i = 0; i < num_threads; ++i) {
+        int start = i * n_rows;
+        int end = (i == num_threads - 1) ? left_rows : start + n_rows;
+        threads.emplace_back(multiply, std::cref(left), std::cref(right), std::ref(result), start, end);
+    }
+
+    for (auto &thread: threads) {
+        thread.join();
     }
 
     std::cout << left_rows << ' ' << right_cols << "\n";
