@@ -2,7 +2,8 @@
 #include <vector>
 #include <cstdint>
 #include <algorithm>
-
+#include <cmath>
+#include <thread>
 
 std::istream& operator>>(std::istream& in, __int128& value) {
     std::string s;
@@ -42,25 +43,57 @@ std::ostream& operator<<(std::ostream& out, __int128 value) {
     return out;
 }
 
+void find_factors(long long n, long long start, long long end, std::vector<long long>& factors) {
+    for (long long i = start; i <= end; ++i) {
+        while (n % i == 0) {
+            factors.push_back(i);
+            n /= i;
+        }
+    }
+}
+
 int main() {
-    __int128 n;
+    long long n;
     std::cin >> n;
     if (n <= 1) {
         return 0;
     }
 
-    std::vector<__int128> factors;
-    for (__int128 p = 2; p <= n / p; ++p) {
-        while (n % p == 0) {
-            factors.push_back(p);
-            n /= p;
-        }
-    }
-    if (n > 1) {
-        factors.push_back(n);
+    long long sqrt_n = (long long)(std::sqrt((long double)(n))) + 1;
+    int num_threads = 16;
+    long long range_size = sqrt_n / num_threads;
+
+    std::vector<std::thread> threads;
+    std::vector< std::vector < long long > > factors_(num_threads);
+    for (int i = 0; i < num_threads; ++i) {
+        long long start = 2 + i * range_size;
+        long long end = (i == num_threads - 1 ? sqrt_n : start + range_size - 1);
+
+        threads.emplace_back(find_factors, n, start, end, std::ref(factors_[i]));
     }
 
-    for (const auto& factor : factors) {
+    for (auto& t : threads) {
+        t.join();
+    }
+
+    long long prod = 1;
+    long long prev = -1;
+    std::vector< long long > res;
+    for (const auto& factors: factors_) {
+        for (const auto& factor: factors) {
+            if (factor == prev || std::__gcd(factor, prod) == 1) {
+                prod *= factor;
+                prev = factor;
+                res.push_back(factor);
+            }
+        }
+    }
+
+    if (prod != n) {
+        res.push_back(n / prod);
+    }
+
+    for (auto factor : res) {
         std::cout << factor << ' ';
     }
     std::cout << '\n';
